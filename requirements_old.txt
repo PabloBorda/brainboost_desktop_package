@@ -1,0 +1,24 @@
+# requirements.txt
+
+# External dependencies
+opencv-python-headless==4.10.0.84
+numpy
+PyAutoGUI==0.9.54
+pytesseract==0.3.13
+mss==9.0.2
+Pillow==11.0.0
+screeninfo==0.8.1
+pynput==1.7.7
+PyGetWindow==0.0.9
+easyocr==1.7.2
+pandas==1.5.3
+
+presidio-analyzer==2.2.355
+presidio-anonymizer==2.0.0
+
+# Local editable installs
+-e file:///brainboost/packages/brainboost_configuration_package
+-e file:///brainboost/packages/brainboost_data_source_logger_package
+-e file:///brainboost/packages/brainboost_data_tools_pipe_pii_package
+-e file:///brainboost/packages/brainboost_ocr_package
+pytest==8.3.4

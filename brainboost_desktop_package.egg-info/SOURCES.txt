@@ -1,0 +1,10 @@
+README.md
+setup.py
+brainboost_desktop_package/Desktop.py
+brainboost_desktop_package/__init__.py
+brainboost_desktop_package.egg-info/PKG-INFO
+brainboost_desktop_package.egg-info/SOURCES.txt
+brainboost_desktop_package.egg-info/dependency_links.txt
+brainboost_desktop_package.egg-info/requires.txt
+brainboost_desktop_package.egg-info/top_level.txt
+tests/test_desktop_automation.py

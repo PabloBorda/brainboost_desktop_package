@@ -1,0 +1,12 @@
+opencv-python-headless==4.10.0.84
+numpy<2.0.0,>=1.24.0
+PyAutoGUI==0.9.54
+pytesseract==0.3.13
+mss==9.0.2
+Pillow==11.0.0
+screeninfo==0.8.1
+pynput==1.7.7
+PyGetWindow==0.0.9
+
+[dev]
+pytest==8.3.4
