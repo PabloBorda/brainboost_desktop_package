@@ -7,6 +7,8 @@ import threading
 import io
 import queue
 from datetime import datetime
+from typing import List, Tuple
+import tempfile
 
 import cv2
 import numpy as np
@@ -53,7 +55,7 @@ class Desktop:
         self.monitoring_user_input = False
 
         # Start user input monitoring if enabled
-        BBConfig.override('monitor_user_input',True)
+        BBConfig.override('monitor_user_input', True)
         if BBConfig.get('monitor_user_input'):
             self.monitoring_user_input = True
             threading.Thread(target=self._monitor_user_input, daemon=True).start()
@@ -534,3 +536,47 @@ class Desktop:
         except Exception as e:
             BBLogger.log(f"Error finding button '{button_text}': {e}")
             return False
+
+
+
+    # ----------------- Snapshot Method Added Below ----------------- #
+
+    def _save_temp_image(self, image: np.ndarray) -> str:
+        """Save the image to a temporary file and return the file path."""
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
+        cv2.imwrite(temp_file.name, image)
+        return temp_file.name
+   
+
+    def snapshot(self) -> Tuple[np.ndarray, List[Tuple[str, Tuple[int, int, int, int]]]]:
+        """
+        Takes a full-screen screenshot, performs OCR to extract text and their bounding rectangles,
+        and returns the image along with the extracted texts and their rectangles.
+
+        Returns:
+            Tuple[np.ndarray, List[Tuple[str, Tuple[int, int, int, int]]]]:
+                - image: The screenshot as a NumPy array.
+                - texts_with_rects: A list of tuples where each tuple contains the extracted text
+                  and its bounding rectangle in the form (x_min, y_min, x_max, y_max).
+        """
+        # Take a full-screen screenshot
+        screenshot = self.take_fullscreen_screenshot()
+
+        # Save the screenshot to a temporary file for OCR processing
+        temp_image_path = self._save_temp_image(screenshot)
+
+        try:
+            # Extract text using BBOcr
+            ocr_results = self.ocr.extract_text(image_path=temp_image_path)
+
+            # Convert OCR results to the desired format
+            texts_with_rects = [
+                (text, (x_min, y_min, x_max, y_max))
+                for (x_min, y_min, x_max, y_max, text) in ocr_results
+            ]
+
+            return (screenshot, texts_with_rects)
+        finally:
+            # Clean up the temporary file
+            if os.path.exists(temp_image_path):
+                os.remove(temp_image_path)

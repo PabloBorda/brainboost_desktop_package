@@ -9,6 +9,7 @@ from PIL import Image
 from brainboost_desktop_package.Desktop import Desktop
 from brainboost_configuration_package.BBConfig import BBConfig
 from datetime import datetime  # Ensure correct import
+import numpy as np
 
 # Override configurations for testing purposes
 BBConfig.override('snapshots_database_enabled', False)
@@ -17,8 +18,17 @@ BBConfig.override('write_screenshots_to_files', True)  # Added override
 TEST_IMAGES_DIR = Path(__file__).parent / "test_images"
 BBConfig.override('snapshot_images', str(TEST_IMAGES_DIR))  # Ensure snapshot_images points to the test directory
 
-# Ensure the test_images directory exists
-TEST_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+# Ensure the test_images directory exists and is clean before tests
+@pytest.fixture(scope="session", autouse=True)
+def setup_test_images_dir():
+    """Fixture to set up the test_images directory before tests run."""
+    if TEST_IMAGES_DIR.exists():
+        # Remove existing files
+        for file in TEST_IMAGES_DIR.iterdir():
+            if file.is_file():
+                file.unlink()
+    else:
+        TEST_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
 
 @pytest.fixture
 def desktop_instance():
@@ -164,10 +174,25 @@ def test_snapshot_saves_image_correctly(desktop_instance):
 
         # If write_screenshots_to_files is enabled, verify the file is saved
         if BBConfig.get('write_screenshots_to_files'):
-            timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
-            snapshot_dir = Path(BBConfig.get('snapshot_images'))
-            snapshot_path = snapshot_dir / f'snapshot_{timestamp}.png'
+            # List files before taking the snapshot
+            before_files = set(TEST_IMAGES_DIR.glob('snapshot_*.png'))
+
+            # Take the snapshot
+            snapshot = desktop_instance.take_snapshot()
+
+            # List files after taking the snapshot
+            after_files = set(TEST_IMAGES_DIR.glob('snapshot_*.png'))
+
+            # Identify the new file
+            new_files = after_files - before_files
+            assert len(new_files) == 1, "Exactly one new snapshot file should be created"
+            snapshot_path = new_files.pop()
             assert snapshot_path.exists(), f"Snapshot file {snapshot_path} should exist"
+
+            # Open the saved image and verify its properties
+            with Image.open(snapshot_path) as img:
+                assert img.width > 0 and img.height > 0, "Image dimensions should be greater than zero"
+                assert img.mode in ["RGB", "BGR"], f"Image mode should be RGB or BGR, got {img.mode}"
 
     except Exception as e:
         pytest.fail(f"take_snapshot failed with exception: {e}")
@@ -221,3 +246,47 @@ def test_black_and_white_image_capture(desktop_instance):
 
     except Exception as e:
         pytest.fail(f"Black and white image capture failed with exception: {e}")
+
+
+
+def test_snapshot_return_value(desktop_instance):
+    """
+    Test that the snapshot method returns a tuple containing:
+    - The screenshot image as a NumPy array.
+    - A list of tuples with extracted text and their bounding rectangles.
+    
+    The test verifies the structure and data types of the returned values.
+    """
+    try:
+        # Call the snapshot method
+        screenshot, texts_with_rects = desktop_instance.snapshot()
+        
+        # Verify that the screenshot is a NumPy array
+        assert isinstance(screenshot, np.ndarray), "Snapshot image should be a NumPy array"
+        assert screenshot.size > 0, "Snapshot image should not be empty"
+        assert screenshot.ndim == 3, "Snapshot image should have 3 dimensions (height, width, channels)"
+        assert screenshot.shape[2] in [3, 4], f"Snapshot image should have 3 or 4 channels, got {screenshot.shape[2]}"
+        
+        # Verify that texts_with_rects is a list
+        assert isinstance(texts_with_rects, list), "texts_with_rects should be a list"
+        
+        # Verify each item in the list
+        for item in texts_with_rects:
+            assert isinstance(item, tuple), "Each item in texts_with_rects should be a tuple"
+            assert len(item) == 2, "Each tuple should contain exactly two elements: (text, rect)"
+            
+            text, rect = item
+            
+            # Verify text
+            assert isinstance(text, str), "The first element of the tuple should be a string (extracted text)"
+            assert len(text) > 0, "Extracted text should not be empty"
+            
+            # Verify rect
+            assert isinstance(rect, tuple), "The second element of the tuple should be a tuple (bounding rectangle)"
+            assert len(rect) == 4, "Bounding rectangle should contain four integers (x_min, y_min, x_max, y_max)"
+            assert all(isinstance(coord, int) for coord in rect), "All bounding rectangle coordinates should be integers"
+            x_min, y_min, x_max, y_max = rect
+            assert x_min < x_max and y_min < y_max, "Bounding rectangle coordinates should define a valid rectangle"
+
+    except Exception as e:
+        pytest.fail(f"snapshot method failed with exception: {e}")
